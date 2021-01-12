@@ -1320,7 +1320,7 @@ function teleportPlayer(...)
 			server.announce("Failed", "Could not find the location \""..location.."\"", peer_id)
 			return
 		else
-			local target = TELEPORT_ZONES[location_name].transform
+			local target_matrix = TELEPORT_ZONES[location_name].transform
 			local re_teleport = true -- prevent player from falling through the ground
 			local player_pos, is_success = server.getPlayerPos(peer_id)
 			if is_success then
@@ -1329,10 +1329,12 @@ function teleportPlayer(...)
 					re_teleport = false
 				end
 			end
-			server.setPlayerPos(peer_id, target)
-			if re_teleport then
-				table.insert(TELEPORT_QUEUE, {peer_id = peer_id, target_matrix = target, time = 40})
-			end
+		end
+	end
+	if #target_matrix > 1 then
+		server.announce(tostring(server.setPlayerPos(peer_id, target_matrix)))
+		if re_teleport then
+			table.insert(TELEPORT_QUEUE, {peer_id = peer_id, target_matrix = target_matrix, time = 40})
 		end
 	end
 end
@@ -1598,7 +1600,7 @@ COMMANDS = {
 	-- Cheat commands --
 	cheats = {
 		func = setCheats,
-		access = {false, false},
+		access = {false, true},
 		args = {req = {"true/false/1/0"}},
 		description = "Disables cheats such as unlimited money, teleport, etc."
 	},
