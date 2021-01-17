@@ -1,4 +1,4 @@
-VERSION = 1.0
+VERSION = 1.01
 ABOUT = {
 	{title="Add-On Name:", text="Carsa's Commands"},
 	{title="Version:", text=VERSION},
@@ -32,6 +32,8 @@ CAREER_SETTINGS = {true, true, true, true, true, true, false, false, false, fals
 CREATIVE_SETTINGS = {true, true, true, true, true, true, true, true, false, true, true, true, true, true, true, true, nil, nil, nil, true, true, false, false, true, true, true, false, true, true, true, true, false, false, true}
 CHEAT_SETTINGS = {3, 4, 5, 6, 7, 8, 10, 11, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 34}
 LINE = "---------------------------------------------------------------------------"
+IS_NEW_SAVE = false
+MAKE_DS_OWNER = false
 
 GAME_SETTING_OPTIONS = {
 	"third_person",
@@ -197,6 +199,19 @@ function refreshVehicleUI()
 	end
 end
 
+-- refreshes popups to indicate the user is blocking teleports
+function drawDenyTeleportUI(peer_id)
+	local data = PLAYER_DATA[getSteamID(peer_id)]
+	if data.deny_tp then
+		data.deny_tp_ui_id = server.getMapID()
+		server.setPopupScreen(peer_id, data.deny_tp_ui_id, "deny_tp", true, "Denying Teleports", 0.34, -0.88)
+	else
+		if data.deny_tp_ui_id then
+			server.removeMapID(peer_id, data.deny_tp_ui_id)
+		end
+	end
+end
+
 -- sorts a table by it's values' first value
 function quicksort(A, lo, hi)
 	if lo < hi then
@@ -310,26 +325,28 @@ function equipPlayer(peer_id, equipment_list, first_spawn)
 end
 
 -- CALLBACK FUNCTIONS --
-
 function onCreate(is_new)
+	IS_NEW_SAVE = is_new
 	first_to_join = true
 	-- check version
 	if g_savedata.version then
-		if g_savedata.version > VERSION then
+		local data_version = tonumber(g_savedata.version)
+		if data_version > VERSION then
 			invalid_version = true
-			server.announce("WARNING", "Your code is older than your save data and cannot be processed correctly. Please update the script to the latest version.")
-		elseif g_savedata.version < VERSION then
-			server.announce("Updating", "checking all preferences exist")
+			server.announce("WARNING", "Your code is older than your save data and may not be processed correctly. Please update the script to the latest version. This script will refuse to execute commands in order to protect your data.")
+		elseif data_version < VERSION then
+			server.announce("UPDATING", "Updating persistent data if necessary.")
 			for k, v in pairs(PREFERENCE_DEFAULTS) do
 				if not g_savedata.preferences[k] then
 					g_savedata.preferences[k] = v
 				end
 			end
+			server.announce("COMPLETE", "Update complete")
 		end
 	end
 
 	if not invalid_version then
-		g_savedata.version = VERSION
+		g_savedata.version = string.format("%0.3f", VERSION)
 		-- define if undefined
 		g_savedata.vehicle_list = g_savedata.vehicle_list or {}
 		g_savedata.object_list = g_savedata.object_list or {}
@@ -423,8 +440,9 @@ function onPlayerJoin(steam_id, name, peer_id, admin, auth)
 				server.addMapLabel(peer_id, v.ui_id, v.label_type, k, v.transform[13], v.transform[15]+5)
 			end
 		end
-		if PREFERENCES.auth_all then
-			server.addAuth(peer_id)
+		if PLAYER_DATA[tostring(steam_id)].deny_tp then
+			PLAYER_DATA[tostring(steam_id)].deny_tp_ui_id = server.getMapID()
+			drawDenyTeleportUI(peer_id)
 		end
 		-- add user data to non-persistent table
 		PLAYER_LIST[peer_id] = {
@@ -495,6 +513,19 @@ end
 local count = 0
 function onTick()
 	if not invalid_version then
+
+		-- Make first player to join a DS an owner
+		if IS_NEW_SAVE then
+			local player_pos, is_success = server.getPlayerPos(0)
+			if is_success then
+				if player_pos[13] == 0 and player_pos[14] == 0 and player_pos[15] == 0 then
+					MAKE_DS_OWNER = true
+				else
+				end
+				IS_NEW_SAVE = false
+			end
+		end
+
 		refreshVehicleUI()
 		if count >= 60 then
 			for k, v in ipairs(JOIN_QUEUE) do --check if player has moved or looked around when joining
@@ -520,6 +551,10 @@ function onTick()
 							PLAYER_LIST[peer_id].last_position = player_matrix
 							PLAYER_LIST[peer_id].last_look_direction = look_direction
 						else
+							if MAKE_DS_OWNER then
+								PLAYER_DATA[getSteamID(peer_id)].permissions.owner = true
+								MAKE_DS_OWNER = false
+							end
 							-- Display welcome message
 							if v.new then
 								if PREFERENCES.welcome_new then
@@ -538,6 +573,9 @@ function onTick()
 								if PREFERENCES.welcome_returning then
 									server.announce("Welcome", PREFERENCES.welcome_returning, peer_id) -- custom welcome message for returning players
 								end
+							end
+							if PREFERENCES.auth_all then
+								server.addAuth(peer_id)
 							end
 							-- assign privilages
 							if PLAYER_DATA[v.steam_id] and PLAYER_DATA[v.steam_id].permissions then
@@ -769,11 +807,9 @@ function removeVehicle(...)
 			if valid then
 				if VEHICLE_LIST[v] then
 					target_id = v
-					if not is_success then
-						server.announce("Failed", "Vehicle "..v.." could not be despawned.", peer_id)
-					end
 				else
 					server.announce("Warning", "The vehicle with the id of "..v.." does not exist", peer_id)
+					return
 				end
 			end
 		end
@@ -789,7 +825,7 @@ function removeVehicle(...)
 	if target_id then
 		is_success = server.despawnVehicle(target_id, true)
 	end
-	if is_success then
+	if not is_success then
 		server.announce("Success", string.format("%s %.0f %s", "Vehicle", target_id, "could not be removed."), peer_id)
 	end
 end
@@ -876,7 +912,7 @@ function printPlayerPermissions(peer_id, target_id)
 			local permissions = PLAYER_DATA[steam_id].permissions
 			local text = ""
 			for k, v in pairs(permissions) do
-				if #text > 0 and v ~= "" then
+				if #text > 0 and v and v ~= "" then
 					text = text..", "
 				end
 				if v then
@@ -1297,45 +1333,55 @@ function teleportPlayer(...)
 	local args = {...}
 	local peer_id = table.remove(args, 1)
 	local target_matrix = {}
+	local re_teleport = true -- prevent player from falling through the ground
 	local as_num = toInteger(args[1])
-	if type(as_num) == "number" then
-		if #args == 1 then
-			target_matrix, found = server.getPlayerPos(as_num)
-			if not found then
-				server.announce("Failed", "Could not find a player with the id of "..args[1], peer_id)
-				return
+	local permissions = PLAYER_DATA[getSteamID(peer_id)].permissions
+	if server.getGameSettings().map_teleport or permissions.admin or permissions.owner then -- prevent teleport unless "Allow teleport" is enabled or owner/admin
+		if type(as_num) == "number" then
+			if #args == 1 then
+				if PLAYER_DATA[getSteamID(as_num)] then
+					if PLAYER_DATA[getSteamID(as_num)].deny_tp then -- and not (permissions.admin or permissions.owner)
+						server.announce("Denied", "That player has blocked teleports", peer_id)
+						return
+					end
+					target_matrix, found = server.getPlayerPos(as_num)
+					if not found then
+						server.announce("Failed", "Could not find a player with the id of "..args[1], peer_id)
+						return
+					end
+				end
+			elseif #args >= 3 then
+				target_matrix = matrix.translation(as_num, tonumber(args[2]), tonumber(args[3]))
 			end
-		elseif #args >= 3 then
-			target_matrix = matrix.translation(as_num, tonumber(args[2]), tonumber(args[3]))
-		end
-	else
-		local location = concatTable(args):lower()
-		local teleport_names = {}
-		for k, v in pairs(TELEPORT_ZONES) do
-			table.insert(teleport_names, k)
-		end
-		local location_name = teleport_names[similarStringInTable(location, teleport_names)]
-		server.announce("location_name", location_name)
-		if location_name == nil then
-			server.announce("Failed", "Could not find the location \""..location.."\"", peer_id)
-			return
 		else
-			local target_matrix = TELEPORT_ZONES[location_name].transform
-			local re_teleport = true -- prevent player from falling through the ground
-			local player_pos, is_success = server.getPlayerPos(peer_id)
-			if is_success then
-				local distance = matrix.distance(player_pos, target)
-				if distance < 1000 then
-					re_teleport = false
+			local location = concatTable(args, " "):lower()
+			local teleport_names = {}
+			for k, v in pairs(TELEPORT_ZONES) do
+				table.insert(teleport_names, k)
+			end
+			local location_name = teleport_names[similarStringInTable(location, teleport_names)]
+			if location_name == nil then
+				server.announce("Failed", "Could not find the location \""..location.."\"", peer_id)
+				return
+			else
+				target_matrix = TELEPORT_ZONES[location_name].transform
+				local player_pos, is_success = server.getPlayerPos(peer_id)
+				if is_success then
+					local distance = matrix.distance(player_pos, target_matrix)
+					if distance < 1000 then
+						re_teleport = false
+					end
 				end
 			end
 		end
-	end
-	if #target_matrix > 1 then
-		server.announce(tostring(server.setPlayerPos(peer_id, target_matrix)))
-		if re_teleport then
-			table.insert(TELEPORT_QUEUE, {peer_id = peer_id, target_matrix = target_matrix, time = 40})
+		if #target_matrix > 1 then
+			server.setPlayerPos(peer_id, target_matrix)
+			if re_teleport then
+				table.insert(TELEPORT_QUEUE, {peer_id = peer_id, target_matrix = target_matrix, time = 40})
+			end
 		end
+	else
+		server.announce("Denied", "\"map_teleport\" (\"Allow Teleport\" in custom options menu) is disabled.", peer_id)
 	end
 end
 
@@ -1345,6 +1391,16 @@ function printTeleportLocations(peer_id)
 	server.announce(" ", "--------------------------  TP LOCATIONS  ------------------------", peer_id)
 	server.announce(" ", concatTable(sorted_table, ",   "), peer_id)
 	server.announce(" ", LINE, peer_id)
+end
+
+function denyTeleport(peer_id)
+	local data = PLAYER_DATA[getSteamID(peer_id)]
+	if data.deny_tp then
+		data.deny_tp = false
+	else
+		data.deny_tp = true
+	end
+	drawDenyTeleportUI(peer_id)
 end
 
 function toggleIDs(peer_id)
@@ -1394,14 +1450,18 @@ function healPlayer(peer_id, target_id, amount)
 	if (amount and not valid_amount) or not valid_target then
 		return
 	end
-	local character_id = server.getPlayerCharacterID(target_id)
-	local hp, is_incapacitated, is_dead = server.getCharacterData(character_id)
-	if is_dead or is_incapacitated then
-		server.reviveCharacter(character_id)
+	if PLAYER_LIST[target_id] then
+		local character_id = server.getPlayerCharacterID(target_id)
+		local hp, is_incapacitated, is_dead = server.getCharacterData(character_id)
+		if is_dead or is_incapacitated then
+			server.reviveCharacter(character_id)
+		end
+		local hp = clamp(amount and (hp + amount) or 100, 0, 100)
+		server.setCharacterData(character_id, hp, false, false)
+		server.announce("Success", "Healed "..playerName(target_id).." to "..string.format("%.0f%%", math.floor(hp)), peer_id)
+	else
+		server.announce("Failed", "The player with the peer_id of "..target_id.." does not exist on this server.", peer_id)
 	end
-	local hp = clamp(amount and (hp + amount) or 100, 0, 100)
-	server.setCharacterData(character_id, hp, false, false)
-	server.announce("Success", "Healed "..playerName(target_id).." to "..string.format("%.0f%%", math.floor(hp)), peer_id)
 end
 
 function giveMoney(peer_id, amount)
@@ -1642,6 +1702,12 @@ COMMANDS = {
 		cheat = true,
 		access = {true},
 		description = "Displays the locations you can telport to."
+	},
+	deny_tp = {
+		func = denyTeleport,
+		cheat = true,
+		access = {},
+		description = "Denies attempts to teleport to you while enabled."
 	},
 	toggle_ids = {
 		func = toggleIDs,

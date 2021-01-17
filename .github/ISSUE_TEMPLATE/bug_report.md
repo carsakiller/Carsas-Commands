@@ -29,5 +29,11 @@ If applicable, add screenshots to help explain your problem.
 - I was hosting from the main menu of the game
 - I was in singleplayer
 
+**What mode were you playing in?**
+*please use the one that applies*
+- Career mode
+- Classic Career mode
+- Custom mode
+
 **Additional context**
 Add any other context about the problem here.
