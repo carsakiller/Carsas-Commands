@@ -1,5 +1,8 @@
 # CHANGELOG
 
+#### -- V1.02 --
+- Fixed issue where dedicated server owners could not be made owners
+
 #### -- V1.01 --
 -	Fixed error when attempting to heal a player that is not on the server.
 - Corrected punctuation for `?player_perms` command.
