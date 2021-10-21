@@ -15,3 +15,8 @@ An addon mod for [Stormworks: Build and Rescue](https://store.steampowered.com/a
 
 ## Install
 You can head over to the [Steam Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=2356110139) for this addon to read more about it and subscribe to it there in order to install it.
+
+## Contributors
+[**Carsakiller**](https://github.com/carsakiller) — Project Manager, Owner
+  
+[**Dargino**](https://github.com/Dargino) — [Fixed Bugs](https://github.com/carsakiller/Carsas-Commands/pull/10)
