@@ -75,33 +75,36 @@ GAME_SETTING_OPTIONS = {
 EQUIPMENT_SLOTS = {2, 3, 3, 3, 3, 1}
 
 EQUIPMENT_DATA = {
-	{name="diving suit", size=1},
-	{name="firefighter", size=1},
-	{name="scuba suit", size=1},
-	{name="parachute", size=1},
-	{name="parka", size=1},
-	{name="binoculars", size=3},
-	{name="cable", size=2},
-	{name="compass", size=3},
-	{name="defibrillator", size=2},
-	{name="fire extinguisher", size=2},
-	{name="first aid", size=3},
-	{name="flare", size=3},
-	{name="flaregun", size=3},
-	{name="flaregun ammo", size=3},
-	{name="flashlight", size=3},
-	{name="hose", size=2},
-	{name="night vision binoculars", size=3},
-	{name="oxygen mask", size=3},
-	{name="radio", size=3},
-	{name="radio signal locator", size=2},
-	{name="remote control", size=3},
-	{name="rope", size=2},
-	{name="strobe light", size=3},
-	{name="strobe light infrared", size=3},
-	{name="transponder", size=3},
-	{name="underwater welding torch", size=2},
-	{name="welding torch", size=2}
+	{name="diving suit", size=1, charges=0, ammo=100},
+	{name="firefighter", size=1, charges=0, ammo=0},
+	{name="scuba suit", size=1, charges=0, ammo=100},
+	{name="parachute", size=1, charges=1, ammo=0},
+	{name="parka", size=1, charges=0, ammo=0},
+	{name="binoculars", size=3, charges=0, ammo=0},
+	{name="cable", size=2, charges=0, ammo=0},
+	{name="compass", size=3, charges=0, ammo=0},
+	{name="defibrillator", size=2, charges=4, ammo=0},
+	{name="fire extinguisher", size=2, charges=0, ammo=9},
+	{name="first aid", size=3, charges=4, ammo=0},
+	{name="flare", size=3, charges=4, ammo=0},
+	{name="flaregun", size=3, charges=1, ammo=0},
+	{name="flaregun ammo", size=3, charges=4, ammo=0},
+	{name="flashlight", size=3, charges=0, ammo=100},
+	{name="hose", size=2, charges=0, ammo=0},
+	{name="night vision binoculars", size=3, charges=0, ammo=100},
+	{name="oxygen mask", size=3, charges=0, ammo=100},
+	{name="radio", size=3, charges=0, ammo=100},
+	{name="radio signal locator", size=2, charges=0, ammo=100},
+	{name="remote control", size=3, charges=0, ammo=100},
+	{name="rope", size=2, charges=0, ammo=0},
+	{name="strobe light", size=3, charges=0, ammo=100},
+	{name="strobe light infrared", size=3, charges=0, ammo=100},
+	{name="transponder", size=3, charges=0, ammo=100},
+	{name="underwater welding torch", size=2, charges=0, ammo=250},
+	{name="welding torch", size=2, charges=0, ammo=400},
+	{name="coal", size=3, charges=0, ammo=0},
+	{name="hazmat", size=1, charges=0, ammo=0},
+	{name="radiation detector", size=3, charges=0, ammo=100}
 }
 
 function clamp(v,low,high)
@@ -307,16 +310,16 @@ function equipPlayer(peer_id, equipment_list, first_spawn)
 					local equipment_id = table.remove(requested_inventory[size], 1)
 					if #open_slots[size] > 0 then
 						local slot = table.remove(open_slots[size], 1)
-						table.insert(new_inventory, {slot = slot, id = equipment_id})
+						table.insert(new_inventory, {slot = slot, id = equipment_id, charges = EQUIPMENT_DATA[equipment_id]["charges"], ammo = EQUIPMENT_DATA[equipment_id]["ammo"]})
 					else
-						table.insert(new_inventory, {slot = slot_number, id = equipment_id})
+						table.insert(new_inventory, {slot = slot_number, id = equipment_id, charges = EQUIPMENT_DATA[equipment_id]["charges"], ammo = EQUIPMENT_DATA[equipment_id]["ammo"]})
 					end
 				end
 			end
 		end
 		-- give player requested equipment
 		for k, v in ipairs(new_inventory) do
-			local is_success = server.setCharacterItem(character_id, v.slot, v.id, false)
+			local is_success = server.setCharacterItem(character_id, v.slot, v.id, false, v.charges, v.ammo)
 			if not is_success then
 				throwWarning(string.format("%s %.0f %s %.0f %s %.0f", "Failed to give character", character_id, "equipment", v.id, "in slot", v.slot))
 			end
@@ -326,6 +329,50 @@ end
 
 -- CALLBACK FUNCTIONS --
 function onCreate(is_new)
+	-- construct weapon equipment list if weapon DLC active
+	if server.dlcWeapons() then
+		EQUIPMENT_DATA[31] = {name="C4", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[32] = {name="C4 detonator", size=3, charges=0, ammo=0}
+		EQUIPMENT_DATA[33] = {name="speargun", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[34] = {name="speargun ammo", size=3, charges=8, ammo=0}
+		EQUIPMENT_DATA[35] = {name="pistol", size=3, charges=17, ammo=0}
+		EQUIPMENT_DATA[36] = {name="pistol ammo", size=3, charges=17, ammo=0}
+		EQUIPMENT_DATA[37] = {name="smg", size=3, charges=40, ammo=0}
+		EQUIPMENT_DATA[38] = {name="smg ammo", size=3, charges=40, ammo=0}
+		EQUIPMENT_DATA[39] = {name="rifle", size=3, charges=30, ammo=0}
+		EQUIPMENT_DATA[40] = {name="rifle ammo", size=3, charges=30, ammo=0}
+		EQUIPMENT_DATA[41] = {name="grenade", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[42] = {name="machine gun ammo kinetic", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[43] = {name="machine gun ammo high explosive", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[44] = {name="machine gun ammo fragmentation", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[45] = {name="machine gun ammo armour piercing", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[46] = {name="machine gun ammo incendiary", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[47] = {name="light ammo kinetic", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[48] = {name="light ammo high explosive", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[49] = {name="light ammo fragmentation", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[50] = {name="light ammo armour piercing", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[51] = {name="light ammo incendiary", size=3, charges=50, ammo=0}
+		EQUIPMENT_DATA[52] = {name="rotary ammo kinetic", size=3, charges=25, ammo=0}
+		EQUIPMENT_DATA[53] = {name="rotary ammo high explosive", size=3, charges=25, ammo=0}
+		EQUIPMENT_DATA[54] = {name="rotary ammo fragmentation", size=3, charges=25, ammo=0}
+		EQUIPMENT_DATA[55] = {name="rotary ammo armour piercing", size=3, charges=25, ammo=0}
+		EQUIPMENT_DATA[56] = {name="rotary ammo incendiary", size=3, charges=25, ammo=0}
+		EQUIPMENT_DATA[57] = {name="heavy ammo kinetic", size=3, charges=10, ammo=0}
+		EQUIPMENT_DATA[58] = {name="heavy ammo high explosive", size=3, charges=10, ammo=0}
+		EQUIPMENT_DATA[59] = {name="heavy ammo fragmentation", size=3, charges=10, ammo=0}
+		EQUIPMENT_DATA[60] = {name="heavy ammo armour piercing", size=3, charges=10, ammo=0}
+		EQUIPMENT_DATA[61] = {name="heavy ammo incendiary", size=3, charges=10, ammo=0}
+		EQUIPMENT_DATA[62] = {name="battle shell kinetic", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[63] = {name="battle shell high explosive", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[64] = {name="battle shell fragmentation", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[65] = {name="battle shell armour piercing", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[66] = {name="battle shell incendiary", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[67] = {name="artillery shell kinetic", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[68] = {name="artillery shell high explosive", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[69] = {name="artillery shell fragmentation", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[70] = {name="artillery shell armour piercing", size=3, charges=1, ammo=0}
+		EQUIPMENT_DATA[71] = {name="artillery shell incendiary", size=3, charges=1, ammo=0}
+	end
 	IS_NEW_SAVE = is_new
 	first_to_join = true
 	-- check version
@@ -1273,6 +1320,15 @@ function printEquipmentIDs(peer_id)
 	server.notify(peer_id, text, "", 1)
 end
 
+function announceEquipmentIDs(peer_id)
+	local text = ""
+	for k, v in ipairs(EQUIPMENT_DATA) do
+		text = text..((k == 1 and "["..k.."]="..v.name) or ("\n".."["..k.."]="..v.name))
+	end
+	server.announce("", "Equipment IDs", peer_id)
+	server.announce("", text, peer_id)
+end
+
 function levenshteinDistance(v1, v2)
 	v1 = v1:lower()
 	v2 = v2:lower()
@@ -1452,7 +1508,10 @@ function healPlayer(peer_id, target_id, amount)
 	end
 	if PLAYER_LIST[target_id] then
 		local character_id = server.getPlayerCharacterID(target_id)
-		local hp, is_incapacitated, is_dead = server.getCharacterData(character_id)
+		local c_data = server.getCharacterData(character_id)
+		local hp = c_data["hp"]
+		local is_incapacitated = c_data["incapacitated"]
+		local is_dead = c_data["dead"]
 		if is_dead or is_incapacitated then
 			server.reviveCharacter(character_id)
 		end
@@ -1689,6 +1748,12 @@ COMMANDS = {
 		cheat = true,
 		access = {true},
 		description = "Displays the ids for equipment."
+	},
+	equipment_ids_chat = {
+		func = announceEquipmentIDs,
+		cheat = true,
+		access = {true},
+		description = "Displays the ids for equipment in the chat box."
 	},
 	tp = {
 		func = teleportPlayer,
