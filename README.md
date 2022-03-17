@@ -1,3 +1,5 @@
+**Please find version 2 in a [seperate repository](https://github.com/carsakiller/Carsas-CommandsV2)**. This repository has been archived.
+
 # Carsa's Commands
 An addon mod for [Stormworks: Build and Rescue](https://store.steampowered.com/app/573090/Stormworks_Build_and_Rescue/). This addon adds a bunch of commands for moderation and fun
 
